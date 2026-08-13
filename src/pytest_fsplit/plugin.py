@@ -41,6 +41,7 @@ ALGORITHM_OPTION = "--fsplit-algorithm"
 _PLAN_ATTRIBUTE = "_pytest_fsplit_plan"
 _ATTEMPTED_FILES_ATTRIBUTE = "_pytest_fsplit_attempted_files"
 _DESELECTED_FILES_ATTRIBUTE = "_pytest_fsplit_deselected_files"
+_CACHED_DURATIONS_ATTRIBUTE = "_pytest_fsplit_cached_durations"
 _XDIST_WORKER_PLAN_KEY = "pytest_fsplit_plan"
 _XDIST_WORKER_PLAN_VERSION = 1
 _SETUP_AND_TEARDOWN_DURATION_LIMIT_SECONDS = 60 * 10
@@ -246,6 +247,25 @@ def pytest_configure(config: pytest.Config) -> None:
     shard_count = _get_option(config, "fsplits")
     shard_index = _get_option(config, "fgroup")
     store_durations = bool(_get_option(config, "fsplit_store_durations", default=False))
+    clean_durations = bool(_get_option(config, "fsplit_clean_durations", False))
+
+    if store_durations:
+        try:
+            cached_durations = (
+                {}
+                if clean_durations
+                else load_node_durations(
+                    _configured_duration_path(config),
+                    missing_ok=True,
+                    empty_ok=True,
+                )
+            )
+        except FileShardingError as exc:
+            duration_path = _configured_duration_path(config)
+            raise pytest.UsageError(
+                f"pytest-fsplit could not read existing duration file {duration_path}: {exc}"
+            ) from exc
+        setattr(config, _CACHED_DURATIONS_ATTRIBUTE, cached_durations)
 
     if shard_count is None and shard_index is None:
         return
@@ -458,20 +478,13 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitC
                 durations[report.nodeid] = durations.get(report.nodeid, 0.0) + report.duration
 
     duration_path = _configured_duration_path(session.config)
-    clean_durations = bool(_get_option(session.config, "fsplit_clean_durations", False))
-    try:
-        cached_durations = (
-            {}
-            if clean_durations
-            else load_node_durations(duration_path, missing_ok=True, empty_ok=True)
-        )
-    except FileShardingError as exc:
-        raise pytest.UsageError(
-            f"pytest-fsplit could not read existing duration file {duration_path}: {exc}"
-        ) from exc
     write_node_durations(
         duration_path,
-        merge_node_durations(cached_durations, durations, clean=clean_durations),
+        merge_node_durations(
+            getattr(session.config, _CACHED_DURATIONS_ATTRIBUTE, {}),
+            durations,
+            clean=bool(_get_option(session.config, "fsplit_clean_durations", False)),
+        ),
     )
 
 

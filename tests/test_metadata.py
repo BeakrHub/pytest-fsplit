@@ -23,6 +23,12 @@ def test_pytest_plugin_entry_point_is_declared() -> None:
     }
 
 
+def test_pytest_dependency_range_matches_compatibility_ci() -> None:
+    pyproject = load_pyproject()
+
+    assert "pytest>=7" in pyproject["project"]["dependencies"]
+
+
 def test_console_scripts_are_declared() -> None:
     pyproject = load_pyproject()
 
