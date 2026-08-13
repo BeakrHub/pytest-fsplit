@@ -91,3 +91,12 @@ items inside the selected files without changing which files belong to a shard.
 For notebook or other file-backed collectors, include those file names with
 `--fsplit-file-pattern`. Pytest-fsplit assigns whole files to shards, so it will
 not split one notebook or custom collected file across several groups.
+
+## Development
+
+```bash
+uv sync --extra dev
+uv run ruff check .
+uv run pytest -q
+uv build
+```
