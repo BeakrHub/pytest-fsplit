@@ -199,6 +199,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_cmdline_main(config: pytest.Config) -> int | pytest.ExitCode | None:
     shard_count = _get_option(config, "fsplits")
     shard_index = _get_option(config, "fgroup")
+    store_durations = bool(_get_option(config, "fsplit_store_durations", default=False))
+    clean_durations = bool(_get_option(config, "fsplit_clean_durations", default=False))
+    if clean_durations and not store_durations:
+        raise pytest.UsageError(
+            f"{CLEAN_DURATIONS_OPTION} requires {STORE_DURATIONS_OPTION}"
+        )
     if shard_count is None and shard_index is None:
         return None
     if shard_count is None:

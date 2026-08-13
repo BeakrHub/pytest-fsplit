@@ -16,7 +16,7 @@ def list_slowest_tests() -> None:
         "-c",
         help="How many slowest entries to list.",
         default=10,
-        type=int,
+        type=_positive_int,
     )
     args = parser.parse_args()
     _print_slowest_entries(load_node_durations(Path(args.durations_path)), args.count)
@@ -29,7 +29,7 @@ def list_slowest_files() -> None:
         "-c",
         help="How many slowest entries to list.",
         default=10,
-        type=int,
+        type=_positive_int,
     )
     args = parser.parse_args()
     _print_slowest_entries(load_file_durations(Path(args.durations_path)), args.count)
@@ -43,6 +43,16 @@ def _duration_parser(description: str) -> argparse.ArgumentParser:
         default=".test_durations",
     )
     return parser
+
+
+def _positive_int(value: str) -> int:
+    try:
+        count = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if count < 1:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 1")
+    return count
 
 
 def _format_slowest_entries(durations: Mapping[str, float], count: int) -> tuple[str, ...]:

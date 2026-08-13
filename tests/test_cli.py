@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from pytest_fsplit.cli import list_slowest_files, list_slowest_tests
 
 
@@ -76,3 +78,26 @@ def test_slowest_files_cli_aggregates_node_durations(
         "2.00 tests/test_beta.py",
     ]
 
+
+def test_cli_rejects_non_positive_count(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    duration_path = tmp_path / "durations.json"
+    duration_path.write_text(json.dumps({"tests/test_alpha.py::test_one": 1.0}))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "fsplit-slowest-files",
+            "--durations-path",
+            str(duration_path),
+            "--count",
+            "0",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        list_slowest_files()
+
+    assert exc_info.value.code == 2

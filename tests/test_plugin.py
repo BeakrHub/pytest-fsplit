@@ -220,6 +220,17 @@ def test_clean_durations_drops_existing_entries(pytester: pytest.Pytester) -> No
     }
 
 
+def test_clean_durations_requires_store_durations(pytester: pytest.Pytester) -> None:
+    write_project(pytester)
+
+    result = pytester.runpytest("--fsplit-clean-durations")
+
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines(
+        ["ERROR: --fsplit-clean-durations requires --fsplit-store-durations"]
+    )
+
+
 def test_store_durations_rejects_malformed_existing_duration_file(
     pytester: pytest.Pytester,
 ) -> None:

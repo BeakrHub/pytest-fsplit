@@ -62,6 +62,7 @@ fsplit-slowest-files --count 10
 - Older pytest-split list-of-pairs duration files are accepted when reading.
 - `--fsplit-store-durations` cannot be combined with sharding because it would
   record only the selected shard.
+- `--fsplit-clean-durations` is valid only with `--fsplit-store-durations`.
 
 ## Compatibility
 
