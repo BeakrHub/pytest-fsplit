@@ -25,6 +25,18 @@ def write_project(pytester: pytest.Pytester) -> None:
     pytester.makeini("[pytest]\ntestpaths = tests\n")
 
 
+def write_equal_duration_project(pytester: pytest.Pytester) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    durations: dict[str, float] = {}
+    for name in ("a", "b", "c", "d"):
+        test_file = tests / f"test_{name}.py"
+        test_file.write_text(f"def test_{name}():\n    pass\n")
+        durations[f"tests/test_{name}.py::test_{name}"] = 1.0
+    (pytester.path / ".test_durations").write_text(json.dumps(durations))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+
 def collected_node_ids(output: str) -> set[str]:
     return {
         line.strip()
@@ -70,6 +82,29 @@ def test_all_file_shards_match_unsharded_collection(pytester: pytest.Pytester) -
         sharded |= node_ids
 
     assert sharded == collected_node_ids(unsharded.stdout.str())
+
+
+def test_duration_based_chunks_option_collects_contiguous_file_ranges(
+    pytester: pytest.Pytester,
+) -> None:
+    write_equal_duration_project(pytester)
+
+    result = pytester.runpytest(
+        "--collect-only",
+        "-q",
+        "--fsplit-algorithm",
+        "duration_based_chunks",
+        "--fsplits",
+        "2",
+        "--fgroup",
+        "1",
+    )
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {
+        "tests/test_a.py::test_a",
+        "tests/test_b.py::test_b",
+    }
 
 
 def test_missing_duration_file_fails_when_splitting(pytester: pytest.Pytester) -> None:

@@ -19,6 +19,8 @@ from pytest_fsplit.errors import FileShardingError
 
 DEFAULT_TEST_PATHS = ("tests",)
 DEFAULT_FILE_PATTERNS = ("test_*.py",)
+DEFAULT_SPLITTING_ALGORITHM = "least_duration"
+SPLITTING_ALGORITHMS = ("least_duration", "duration_based_chunks")
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,7 @@ class FileShardPlan:
     untimed_files: frozenset[str]
     zero_weight_files: frozenset[str]
     marker_expression_supported: bool = True
+    splitting_algorithm: str = DEFAULT_SPLITTING_ALGORITHM
 
 
 @dataclass(frozen=True)
@@ -413,11 +416,17 @@ def assign_files_to_shards(
     shard_count: int,
     *,
     zero_weight_files: Iterable[str] = (),
+    splitting_algorithm: str = DEFAULT_SPLITTING_ALGORITHM,
 ) -> tuple[FileShard, ...]:
-    """Assign files using deterministic longest-processing-time-first scheduling."""
+    """Assign files using a deterministic file-level splitting algorithm."""
 
     if shard_count <= 0:
         raise FileShardingError("file shard count must be greater than zero")
+    if splitting_algorithm not in SPLITTING_ALGORITHMS:
+        raise FileShardingError(
+            "file splitting algorithm must be one of "
+            f"{', '.join(SPLITTING_ALGORITHMS)}, got {splitting_algorithm!r}"
+        )
 
     files = tuple(sorted(set(candidate_files)))
     if not files:
@@ -453,14 +462,32 @@ def assign_files_to_shards(
     shard_untimed_files: list[list[str]] = [[] for _ in range(shard_count)]
     shard_zero_weight_files: list[list[str]] = [[] for _ in range(shard_count)]
 
-    for file_path in sorted(files, key=lambda path: (-estimated_durations[path], path)):
-        if file_path in effective_zero_weight_files:
-            shard_number = min(
-                range(shard_count),
-                key=lambda index: (len(shard_files[index]), index),
-            )
-        else:
-            shard_number = min(range(shard_count), key=lambda index: (shard_weights[index], index))
+    if splitting_algorithm == "least_duration":
+        assigned_files = sorted(files, key=lambda path: (-estimated_durations[path], path))
+        shard_numbers = (
+            min(range(shard_count), key=lambda index: (len(shard_files[index]), index))
+            if file_path in effective_zero_weight_files
+            else min(range(shard_count), key=lambda index: (shard_weights[index], index))
+            for file_path in assigned_files
+        )
+    else:
+        assigned_files = files
+        target_duration = sum(estimated_durations.values()) / shard_count
+
+        def chunk_shard_numbers() -> Iterable[int]:
+            shard_number = 0
+            for _file_path in assigned_files:
+                if (
+                    shard_number < shard_count - 1
+                    and shard_files[shard_number]
+                    and shard_weights[shard_number] >= target_duration
+                ):
+                    shard_number += 1
+                yield shard_number
+
+        shard_numbers = chunk_shard_numbers()
+
+    for file_path, shard_number in zip(assigned_files, shard_numbers, strict=True):
         shard_files[shard_number].append(file_path)
         shard_weights[shard_number] += estimated_durations[file_path]
         if file_path in untimed_files:
@@ -502,6 +529,7 @@ def build_file_shard_plan(
     ignore_globs: Iterable[str] = (),
     norecurse_patterns: Iterable[str] = (),
     initial_paths: Iterable[str] = (),
+    splitting_algorithm: str = DEFAULT_SPLITTING_ALGORITHM,
 ) -> FileShardPlan:
     """Build a one-based shard plan rooted at a checkout."""
 
@@ -536,6 +564,7 @@ def build_file_shard_plan(
         durations,
         shard_count,
         zero_weight_files=zero_weight_files,
+        splitting_algorithm=splitting_algorithm,
     )
     selected_shard = shards[shard_index - 1]
     assigned_files = frozenset(selected_shard.files)
@@ -556,6 +585,7 @@ def build_file_shard_plan(
         untimed_files=frozenset(selected_shard.untimed_files),
         zero_weight_files=selected_zero_weight_files,
         marker_expression_supported=marker_analysis.supported,
+        splitting_algorithm=splitting_algorithm,
     )
 
 

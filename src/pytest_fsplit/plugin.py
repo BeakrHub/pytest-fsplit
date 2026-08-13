@@ -12,6 +12,8 @@ import pytest
 from _pytest.reports import TestReport
 
 from pytest_fsplit.core import (
+    DEFAULT_SPLITTING_ALGORITHM,
+    SPLITTING_ALGORITHMS,
     FileShardPlan,
     absolute_collection_patterns,
     absolute_initial_paths,
@@ -33,6 +35,7 @@ STORE_DURATIONS_OPTION = "--fsplit-store-durations"
 DURATIONS_PATH_OPTION = "--fsplit-durations-path"
 CLEAN_DURATIONS_OPTION = "--fsplit-clean-durations"
 FILE_PATTERN_OPTION = "--fsplit-file-pattern"
+ALGORITHM_OPTION = "--fsplit-algorithm"
 
 _PLAN_ATTRIBUTE = "_pytest_fsplit_plan"
 _ATTEMPTED_FILES_ATTRIBUTE = "_pytest_fsplit_attempted_files"
@@ -59,6 +62,7 @@ def _serialize_plan(plan: FileShardPlan) -> str:
             "untimed_files": sorted(plan.untimed_files),
             "zero_weight_files": sorted(plan.zero_weight_files),
             "marker_expression_supported": plan.marker_expression_supported,
+            "splitting_algorithm": plan.splitting_algorithm,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -88,6 +92,9 @@ def _deserialize_plan(serialized_plan: object) -> FileShardPlan:
             untimed_files=frozenset(payload["untimed_files"]),
             zero_weight_files=frozenset(payload["zero_weight_files"]),
             marker_expression_supported=bool(payload["marker_expression_supported"]),
+            splitting_algorithm=str(
+                payload.get("splitting_algorithm", DEFAULT_SPLITTING_ALGORITHM)
+            ),
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise FileShardingError(f"xdist worker received an invalid file shard plan: {exc}") from exc
@@ -141,6 +148,11 @@ def _build_plan(config: pytest.Config, shard_count: int, shard_index: int) -> Fi
         ignore_globs=ignore_globs,
         norecurse_patterns=config.getini("norecursedirs"),
         initial_paths=(str(path) for path in initial_paths),
+        splitting_algorithm=_get_option(
+            config,
+            "fsplit_algorithm",
+            default=DEFAULT_SPLITTING_ALGORITHM,
+        ),
     )
 
 
@@ -191,6 +203,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "file path pattern to shard; may be supplied multiple times. "
             "Defaults to pytest's python_files patterns."
+        ),
+    )
+    group.addoption(
+        ALGORITHM_OPTION,
+        dest="fsplit_algorithm",
+        default=DEFAULT_SPLITTING_ALGORITHM,
+        choices=SPLITTING_ALGORITHMS,
+        help=(
+            "file splitting algorithm. "
+            "least_duration greedily balances files by historical duration; "
+            "duration_based_chunks preserves contiguous lexical file order."
         ),
     )
 
@@ -457,6 +480,7 @@ def pytest_report_header(config: pytest.Config) -> str | list[str] | None:
         return None
     summary = (
         f"pytest-fsplit {plan.shard_index}/{plan.shard_count}: "
+        f"{plan.splitting_algorithm}, "
         f"{len(plan.assigned_files)}/{len(plan.candidate_files)} files assigned, "
         f"{len(plan.selected_files)} collected, "
         f"{plan.estimated_seconds:.2f}s estimated, "

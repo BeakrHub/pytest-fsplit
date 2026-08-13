@@ -119,6 +119,38 @@ def test_assign_files_allows_more_shards_than_files() -> None:
     assert shards[2].files == ()
 
 
+def test_duration_based_chunks_preserves_contiguous_file_order() -> None:
+    shards = assign_files_to_shards(
+        [
+            "tests/test_c.py",
+            "tests/test_a.py",
+            "tests/test_d.py",
+            "tests/test_b.py",
+        ],
+        {
+            "tests/test_a.py": 1.0,
+            "tests/test_b.py": 1.0,
+            "tests/test_c.py": 1.0,
+            "tests/test_d.py": 1.0,
+        },
+        2,
+        splitting_algorithm="duration_based_chunks",
+    )
+
+    assert shards[0].files == ("tests/test_a.py", "tests/test_b.py")
+    assert shards[1].files == ("tests/test_c.py", "tests/test_d.py")
+
+
+def test_unknown_file_splitting_algorithm_fails() -> None:
+    with pytest.raises(FileShardingError, match="file splitting algorithm"):
+        assign_files_to_shards(
+            ["tests/test_alpha.py"],
+            {"tests/test_alpha.py": 1.0},
+            1,
+            splitting_algorithm="unknown",
+        )
+
+
 def test_discover_candidate_files_honors_ignores_and_norecursedirs(tmp_path: Path) -> None:
     write_file(tmp_path, "tests/test_kept.py")
     write_file(tmp_path, "tests/generated/test_ignored.py")

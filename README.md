@@ -34,6 +34,14 @@ pytest --fsplits 4 --fgroup 4
 The duration file defaults to `.test_durations` in the invocation directory and
 can be changed with `--fsplit-durations-path`.
 
+The default file splitting algorithm is `least_duration`, which greedily assigns
+the next heaviest file to the lightest shard. To preserve contiguous lexical file
+order instead, use `duration_based_chunks`:
+
+```bash
+pytest --fsplits 4 --fgroup 1 --fsplit-algorithm duration_based_chunks
+```
+
 For non-Python collectors, provide the file patterns pytest-fsplit should treat
 as shardable files:
 
@@ -54,6 +62,7 @@ fsplit-slowest-files --count 10
 - Both `--fsplits` and `--fgroup` must be supplied together.
 - If there are more shards than candidate files, planned empty shards exit
   successfully.
+- `--fsplit-algorithm` supports `least_duration` and `duration_based_chunks`.
 - Files without historical timings use the median known file duration.
 - Stale timing entries for deleted files are ignored.
 - Missing, malformed, or unusable duration files fail immediately when sharding.
@@ -74,3 +83,7 @@ arguments, marker deselection, and xdist worker startup.
 If pytest-split is installed too, do not combine `--fsplits`/`--fgroup` with
 pytest-split's `--splits`/`--group`; pytest-fsplit rejects that combination to
 avoid applying two independent partitions.
+
+Unlike pytest-split's post-collection grouping, pytest-fsplit groups whole files
+before collection. That means test-order randomization plugins can still reorder
+items inside the selected files without changing which files belong to a shard.
