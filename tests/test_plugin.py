@@ -600,6 +600,67 @@ def test_custom_file_pattern_shards_files_from_other_collectors(
     assert "slow.case" in result.stdout.str()
 
 
+@pytest.mark.parametrize("nbval_option", ["--nbval", "--nbval-lax"])
+def test_nbval_options_automatically_shard_notebook_files(
+    pytester: pytest.Pytester,
+    nbval_option: str,
+) -> None:
+    notebooks = pytester.path / "notebooks"
+    notebooks.mkdir()
+    (notebooks / "slow.ipynb").write_text("{}\n")
+    (notebooks / "fast.ipynb").write_text("{}\n")
+    (pytester.path / ".test_durations").write_text(
+        json.dumps(
+            {
+                "notebooks/slow.ipynb::Cell 1": 10.0,
+                "notebooks/fast.ipynb::Cell 1": 1.0,
+            }
+        )
+    )
+    pytester.makeini("[pytest]\ntestpaths = notebooks\n")
+    pytester.makeconftest(
+        """
+        import pytest
+
+        def pytest_addoption(parser):
+            parser.addoption("--nbval", dest="nbval", action="store_true")
+            parser.addoption("--nbval-lax", dest="nbval_lax", action="store_true")
+
+        class NotebookFile(pytest.File):
+            def collect(self):
+                yield NotebookCell.from_parent(self, name="Cell 1")
+
+        class NotebookCell(pytest.Item):
+            def runtest(self):
+                pass
+
+            def reportinfo(self):
+                return self.path, 0, self.name
+
+        def pytest_collect_file(file_path, parent):
+            if file_path.suffix == ".ipynb" and (
+                parent.config.getoption("nbval") or parent.config.getoption("nbval_lax")
+            ):
+                return NotebookFile.from_parent(parent, path=file_path)
+            return None
+        """
+    )
+
+    result = pytester.runpytest(
+        "--collect-only",
+        "-q",
+        nbval_option,
+        "--fsplits",
+        "2",
+        "--fgroup",
+        "1",
+    )
+
+    result.assert_outcomes()
+    assert "notebooks/slow.ipynb::Cell 1" in result.stdout.str()
+    assert "notebooks/fast.ipynb::Cell 1" not in result.stdout.str()
+
+
 def test_xdist_workers_receive_the_controller_shard_plan(pytester: pytest.Pytester) -> None:
     pytest.importorskip("xdist")
     write_project(pytester)

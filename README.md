@@ -51,11 +51,13 @@ order instead, use `duration_based_chunks`:
 pytest --fsplits 4 --fgroup 1 --fsplit-algorithm duration_based_chunks
 ```
 
-For non-Python collectors, provide the file patterns pytest-fsplit should treat
-as shardable files:
+When nbval is active through `--nbval` or `--nbval-lax`, pytest-fsplit treats
+`.ipynb` notebooks as shardable files automatically. For other non-Python
+collectors, provide the file patterns pytest-fsplit should treat as shardable
+files:
 
 ```bash
-pytest --fsplit-file-pattern "*.ipynb" --fsplits 4 --fgroup 1
+pytest --fsplit-file-pattern "*.case" --fsplits 4 --fgroup 1
 ```
 
 Stored duration files can be inspected from the command line:
@@ -106,7 +108,8 @@ Unlike pytest-split's post-collection grouping, pytest-fsplit groups whole files
 before collection. That means test-order randomization plugins can still reorder
 items inside the selected files without changing which files belong to a shard.
 
-For notebook or other file-backed collectors, include those file names with
+When nbval is active, `.ipynb` files are assigned as whole-file shards
+automatically. For other file-backed collectors, include those file names with
 `--fsplit-file-pattern`. Pytest-fsplit assigns whole files to shards, so it will
 not split one notebook or custom collected file across several groups.
 

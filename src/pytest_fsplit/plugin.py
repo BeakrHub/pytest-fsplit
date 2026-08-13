@@ -54,6 +54,7 @@ _PYTEST_SPLIT_OPTION_ALIASES = {
     "--clean-durations": CLEAN_DURATIONS_OPTION,
     "--splitting-algorithm": ALGORITHM_OPTION,
 }
+_NOTEBOOK_FILE_PATTERN = "*.ipynb"
 
 
 def _serialize_plan(plan: FileShardPlan) -> str:
@@ -168,9 +169,19 @@ def _configured_test_paths(config: pytest.Config) -> tuple[str, ...]:
     )
 
 
+def _nbval_collects_notebooks(config: pytest.Config) -> bool:
+    return any(
+        bool(_get_option(config, option, default=False))
+        for option in ("nbval", "nbval_lax")
+    )
+
+
 def _configured_file_patterns(config: pytest.Config) -> tuple[str, ...]:
     configured_patterns = _get_option(config, "fsplit_file_patterns", default=None)
-    return tuple(configured_patterns or config.getini("python_files"))
+    patterns = list(configured_patterns or config.getini("python_files"))
+    if _nbval_collects_notebooks(config) and _NOTEBOOK_FILE_PATTERN not in patterns:
+        patterns.append(_NOTEBOOK_FILE_PATTERN)
+    return tuple(patterns)
 
 
 def _build_plan(config: pytest.Config, shard_count: int, shard_index: int) -> FileShardPlan:
