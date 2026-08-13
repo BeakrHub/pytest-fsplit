@@ -394,6 +394,7 @@ def pytest_deselected(items: list[pytest.Item]) -> None:
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
     plan: FileShardPlan | None = getattr(session.config, _PLAN_ATTRIBUTE, None)
+    shard_was_planned_empty = plan is not None and not plan.assigned_files
     all_assigned_files_were_pruned = (
         plan is not None
         and bool(plan.assigned_files)
@@ -403,7 +404,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitC
     if (
         plan is not None
         and exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED
-        and all_assigned_files_were_pruned
+        and (shard_was_planned_empty or all_assigned_files_were_pruned)
     ):
         session.exitstatus = pytest.ExitCode.OK
 

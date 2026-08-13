@@ -52,6 +52,8 @@ fsplit-slowest-files --count 10
 
 - Shard indices are one-based.
 - Both `--fsplits` and `--fgroup` must be supplied together.
+- If there are more shards than candidate files, planned empty shards exit
+  successfully.
 - Files without historical timings use the median known file duration.
 - Stale timing entries for deleted files are ignored.
 - Missing, malformed, or unusable duration files fail immediately when sharding.

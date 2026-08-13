@@ -422,10 +422,6 @@ def assign_files_to_shards(
     files = tuple(sorted(set(candidate_files)))
     if not files:
         raise FileShardingError("no candidate test files were discovered")
-    if shard_count > len(files):
-        raise FileShardingError(
-            f"file shard count {shard_count} exceeds {len(files)} candidate test files"
-        )
 
     effective_zero_weight_files = set(zero_weight_files) & set(files)
     usable_durations = {

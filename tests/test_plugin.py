@@ -135,6 +135,25 @@ def test_runtime_deselected_empty_shard_still_fails(pytester: pytest.Pytester) -
     assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED
 
 
+def test_planned_empty_file_shard_exits_successfully(pytester: pytest.Pytester) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("def test_example():\n    pass\n")
+    (pytester.path / ".test_durations").write_text(
+        json.dumps({"tests/test_example.py::test_example": 1.0})
+    )
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+    result = pytester.runpytest(
+        "--fsplits",
+        "3",
+        "--fgroup",
+        "2",
+    )
+
+    result.assert_outcomes()
+
+
 def test_store_durations_writes_pytest_split_compatible_json(pytester: pytest.Pytester) -> None:
     tests = pytester.path / "tests"
     tests.mkdir()

@@ -107,6 +107,18 @@ def test_assign_files_uses_deterministic_lpt_and_median_for_new_files() -> None:
     assert shards[1].untimed_files == ("tests/test_new.py",)
 
 
+def test_assign_files_allows_more_shards_than_files() -> None:
+    shards = assign_files_to_shards(
+        ["tests/test_alpha.py"],
+        {"tests/test_alpha.py": 1.0},
+        3,
+    )
+
+    assert shards[0].files == ("tests/test_alpha.py",)
+    assert shards[1].files == ()
+    assert shards[2].files == ()
+
+
 def test_discover_candidate_files_honors_ignores_and_norecursedirs(tmp_path: Path) -> None:
     write_file(tmp_path, "tests/test_kept.py")
     write_file(tmp_path, "tests/generated/test_ignored.py")
