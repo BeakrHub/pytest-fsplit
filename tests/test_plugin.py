@@ -360,6 +360,31 @@ def test_sharding_rejects_pytest_split_selection_options(pytester: pytest.Pytest
     )
 
 
+def test_sharding_rejects_pytest_split_duration_storage(
+    pytester: pytest.Pytester,
+) -> None:
+    write_project(pytester)
+    pytester.makeconftest(
+        """
+        def pytest_addoption(parser):
+            parser.addoption("--store-durations", dest="store_durations", action="store_true")
+        """
+    )
+
+    result = pytester.runpytest(
+        "--fsplits",
+        "2",
+        "--fgroup",
+        "1",
+        "--store-durations",
+    )
+
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines(
+        ["ERROR: --fsplits cannot be combined with pytest-split duration storage:*"]
+    )
+
+
 def test_duration_path_defaults_to_invocation_directory(pytester: pytest.Pytester) -> None:
     write_project(pytester)
     subdir = pytester.path / "subdir"

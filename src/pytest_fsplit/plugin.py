@@ -275,15 +275,21 @@ def pytest_configure(config: pytest.Config) -> None:
             "it would record only this shard's timings"
         )
 
-    pytest_split_options = tuple(
+    pytest_split_selection_options = tuple(
         option_name
         for option_name, option_destination in (("--splits", "splits"), ("--group", "group"))
         if _get_option(config, option_destination, default=None) is not None
     )
-    if pytest_split_options:
+    if pytest_split_selection_options:
         raise pytest.UsageError(
             f"{FSPLITS_OPTION} cannot be combined with pytest-split selection options: "
-            f"{', '.join(pytest_split_options)}"
+            f"{', '.join(pytest_split_selection_options)}"
+        )
+
+    if bool(_get_option(config, "store_durations", default=False)):
+        raise pytest.UsageError(
+            f"{FSPLITS_OPTION} cannot be combined with pytest-split duration storage: "
+            "--store-durations would record only this shard's timings"
         )
 
     worker_input = getattr(config, "workerinput", None)

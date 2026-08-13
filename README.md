@@ -85,8 +85,9 @@ cost paid by post-collection splitters. It honors pytest collection roots,
 arguments, marker deselection, and xdist worker startup.
 
 If pytest-split is installed too, do not combine `--fsplits`/`--fgroup` with
-pytest-split's `--splits`/`--group`; pytest-fsplit rejects that combination to
-avoid applying two independent partitions.
+pytest-split's `--splits`/`--group` or `--store-durations`; pytest-fsplit
+rejects those combinations to avoid applying two independent partitions or
+recording timings for only one file shard.
 
 Unlike pytest-split's post-collection grouping, pytest-fsplit groups whole files
 before collection. That means test-order randomization plugins can still reorder
