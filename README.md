@@ -87,3 +87,7 @@ avoid applying two independent partitions.
 Unlike pytest-split's post-collection grouping, pytest-fsplit groups whole files
 before collection. That means test-order randomization plugins can still reorder
 items inside the selected files without changing which files belong to a shard.
+
+For notebook or other file-backed collectors, include those file names with
+`--fsplit-file-pattern`. Pytest-fsplit assigns whole files to shards, so it will
+not split one notebook or custom collected file across several groups.

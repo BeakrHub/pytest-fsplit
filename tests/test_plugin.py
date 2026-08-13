@@ -84,6 +84,53 @@ def test_all_file_shards_match_unsharded_collection(pytester: pytest.Pytester) -
     assert sharded == collected_node_ids(unsharded.stdout.str())
 
 
+def test_item_order_randomization_does_not_change_file_shard_membership(
+    pytester: pytest.Pytester,
+) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    durations: dict[str, float] = {}
+    for name in ("alpha", "beta"):
+        test_file = tests / f"test_{name}.py"
+        test_file.write_text(
+            f"def test_{name}_one():\n    pass\n\n"
+            f"def test_{name}_two():\n    pass\n"
+        )
+        durations[f"tests/test_{name}.py::test_{name}_one"] = 1.0
+        durations[f"tests/test_{name}.py::test_{name}_two"] = 1.0
+    (pytester.path / ".test_durations").write_text(json.dumps(durations))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+    pytester.makeconftest(
+        """
+        import pytest
+
+        @pytest.hookimpl(trylast=True)
+        def pytest_collection_modifyitems(items):
+            items.reverse()
+        """
+    )
+
+    unsharded = pytester.runpytest("--collect-only", "-q")
+    unsharded.assert_outcomes()
+
+    sharded: set[str] = set()
+    for index in (1, 2):
+        result = pytester.runpytest(
+            "--collect-only",
+            "-q",
+            "--fsplits",
+            "2",
+            "--fgroup",
+            str(index),
+        )
+        result.assert_outcomes()
+        node_ids = collected_node_ids(result.stdout.str())
+        assert not (sharded & node_ids)
+        sharded |= node_ids
+
+    assert sharded == collected_node_ids(unsharded.stdout.str())
+
+
 def test_duration_based_chunks_option_collects_contiguous_file_ranges(
     pytester: pytest.Pytester,
 ) -> None:
