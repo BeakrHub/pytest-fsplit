@@ -52,6 +52,7 @@ jobs:
           .venv/bin/python -c "import subprocess; out = subprocess.check_output(['.venv/bin/pytest', '--help'], text=True); assert '--fsplits' in out; assert '--fgroup' in out"
           .venv/bin/fsplit-plan --help
           .venv/bin/fsplit-slowest-tests --help
+          .venv/bin/slowest-tests --help
           .venv/bin/fsplit-slowest-files --help
           .venv/bin/python - <<'PY'
           import json
