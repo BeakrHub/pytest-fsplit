@@ -134,6 +134,35 @@ def test_pytest_split_style_equals_options_are_supported(
     }
 
 
+def test_pytest_split_style_options_are_supported_from_pytest_ini_addopts(
+    pytester: pytest.Pytester,
+) -> None:
+    write_project(pytester)
+    (pytester.path / "tox.ini").write_text(
+        "[pytest]\n"
+        "testpaths = tests\n"
+        "addopts = --splits 2 --group 1\n"
+    )
+
+    result = pytester.runpytest("--collect-only", "-q")
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {"tests/test_slow.py::test_slow"}
+
+
+def test_pytest_split_style_options_are_supported_from_pytest_addopts(
+    pytester: pytest.Pytester,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(pytester)
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--splits 2 --group 1")
+
+    result = pytester.runpytest("--collect-only", "-q")
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {"tests/test_slow.py::test_slow"}
+
+
 def test_pytest_split_style_duration_storage_options_are_supported(
     pytester: pytest.Pytester,
 ) -> None:
