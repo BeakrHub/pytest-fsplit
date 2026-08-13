@@ -134,6 +134,26 @@ def test_pytest_split_style_equals_options_are_supported(
     }
 
 
+def test_pytest_split_style_shard_options_can_mix_with_native_options(
+    pytester: pytest.Pytester,
+) -> None:
+    write_project(pytester)
+
+    result = pytester.runpytest(
+        "--collect-only",
+        "-q",
+        "--fsplit-durations-path",
+        str(pytester.path / ".test_durations"),
+        "--splits",
+        "2",
+        "--group",
+        "1",
+    )
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {"tests/test_slow.py::test_slow"}
+
+
 def test_pytest_split_style_options_are_supported_from_pytest_ini_addopts(
     pytester: pytest.Pytester,
 ) -> None:
@@ -463,15 +483,19 @@ def test_store_durations_rejects_malformed_existing_duration_file(
 
 def test_sharding_rejects_pytest_split_selection_options(pytester: pytest.Pytester) -> None:
     write_project(pytester)
-    pytester.makeconftest(
-        """
-        def pytest_addoption(parser):
-            parser.addoption("--splits", dest="splits", type=int)
-            parser.addoption("--group", dest="group", type=int)
-        """
+    plugin_package = pytester.path / "pytest_split"
+    plugin_package.mkdir()
+    (plugin_package / "__init__.py").write_text("")
+    (plugin_package / "plugin.py").write_text(
+        'def pytest_addoption(parser):\n'
+        '    parser.addoption("--splits", dest="splits", type=int)\n'
+        '    parser.addoption("--group", dest="group", type=int)\n'
     )
+    pytester.syspathinsert()
 
     result = pytester.runpytest(
+        "-p",
+        "pytest_split.plugin",
         "--fsplits",
         "2",
         "--fgroup",
@@ -492,14 +516,18 @@ def test_sharding_rejects_pytest_split_duration_storage(
     pytester: pytest.Pytester,
 ) -> None:
     write_project(pytester)
-    pytester.makeconftest(
-        """
-        def pytest_addoption(parser):
-            parser.addoption("--store-durations", dest="store_durations", action="store_true")
-        """
+    plugin_package = pytester.path / "pytest_split"
+    plugin_package.mkdir()
+    (plugin_package / "__init__.py").write_text("")
+    (plugin_package / "plugin.py").write_text(
+        'def pytest_addoption(parser):\n'
+        '    parser.addoption("--store-durations", dest="store_durations", action="store_true")\n'
     )
+    pytester.syspathinsert()
 
     result = pytester.runpytest(
+        "-p",
+        "pytest_split.plugin",
         "--fsplits",
         "2",
         "--fgroup",

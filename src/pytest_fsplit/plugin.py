@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -131,19 +130,7 @@ def _pytest_split_is_loaded(config: pytest.Config) -> bool:
     )
 
 
-def _iter_option_names(args: list[str]) -> Iterable[str]:
-    for argument in args:
-        if argument == "--":
-            return
-        if not argument.startswith("-"):
-            continue
-        option, _, _value = argument.partition("=")
-        yield option
-
-
 def _rewrite_pytest_split_aliases(args: list[str]) -> None:
-    if set(_iter_option_names(args)) & set(_PYTEST_SPLIT_OPTION_ALIASES.values()):
-        return
     for index, argument in enumerate(args):
         if argument == "--":
             return
