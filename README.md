@@ -34,6 +34,13 @@ pytest --fsplits 4 --fgroup 4
 The duration file defaults to `.test_durations` in the invocation directory and
 can be changed with `--fsplit-durations-path`.
 
+For non-Python collectors, provide the file patterns pytest-fsplit should treat
+as shardable files:
+
+```bash
+pytest --fsplit-file-pattern "*.ipynb" --fsplits 4 --fgroup 1
+```
+
 ## Behavior
 
 - Shard indices are one-based.
@@ -43,6 +50,7 @@ can be changed with `--fsplit-durations-path`.
 - Missing, malformed, or unusable duration files fail immediately when sharding.
 - `--fsplit-store-durations` writes the same node-duration JSON shape used by
   pytest-split.
+- Older pytest-split list-of-pairs duration files are accepted when reading.
 - `--fsplit-store-durations` cannot be combined with sharding because it would
   record only the selected shard.
 

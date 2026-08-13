@@ -218,3 +218,55 @@ def test_duration_path_defaults_to_invocation_directory(pytester: pytest.Pyteste
 
     result.assert_outcomes()
     assert collected_node_ids(result.stdout.str()) == {"tests/test_fast.py::test_fast"}
+
+
+def test_custom_file_pattern_shards_files_from_other_collectors(
+    pytester: pytest.Pytester,
+) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "slow.case").write_text("slow\n")
+    (tests / "fast.case").write_text("fast\n")
+    (pytester.path / ".test_durations").write_text(
+        json.dumps(
+            {
+                "tests/slow.case::test_case": 10.0,
+                "tests/fast.case::test_case": 1.0,
+            }
+        )
+    )
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+    pytester.makeconftest(
+        """
+        import pytest
+
+        class CaseFile(pytest.File):
+            def collect(self):
+                yield CaseItem.from_parent(self, name="test_case")
+
+        class CaseItem(pytest.Item):
+            def runtest(self):
+                pass
+
+            def reportinfo(self):
+                return self.path, 0, self.name
+
+        def pytest_collect_file(file_path, parent):
+            if file_path.suffix == ".case":
+                return CaseFile.from_parent(parent, path=file_path)
+            return None
+        """
+    )
+
+    result = pytester.runpytest(
+        "-vv",
+        "--fsplit-file-pattern",
+        "*.case",
+        "--fsplits",
+        "2",
+        "--fgroup",
+        "1",
+    )
+
+    result.assert_outcomes(passed=1)
+    assert "slow.case" in result.stdout.str()

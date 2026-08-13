@@ -71,6 +71,24 @@ def lexical_absolute(path: Path) -> Path:
     return Path(os.path.abspath(path))
 
 
+def _normalise_duration_payload(raw_durations: object, duration_path: Path) -> Mapping[str, object]:
+    """Accept pytest-split's current object format and older list-of-pairs format."""
+
+    if isinstance(raw_durations, list):
+        try:
+            raw_durations = dict(raw_durations)
+        except (TypeError, ValueError) as exc:
+            raise FileShardingError(
+                f"duration file must contain duration pairs or a JSON object: {duration_path}"
+            ) from exc
+
+    if not isinstance(raw_durations, dict) or not raw_durations:
+        raise FileShardingError(
+            f"duration file must contain a non-empty JSON object: {duration_path}"
+        )
+    return raw_durations
+
+
 def load_file_durations(duration_path: Path) -> dict[str, float]:
     """Load pytest-split-compatible node timings and aggregate them by test file."""
 
@@ -81,10 +99,7 @@ def load_file_durations(duration_path: Path) -> dict[str, float]:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise FileShardingError(f"could not read valid JSON from {duration_path}: {exc}") from exc
 
-    if not isinstance(raw_durations, dict) or not raw_durations:
-        raise FileShardingError(
-            f"duration file must contain a non-empty JSON object: {duration_path}"
-        )
+    raw_durations = _normalise_duration_payload(raw_durations, duration_path)
 
     file_durations: dict[str, float] = {}
     for node_id, duration in raw_durations.items():
@@ -100,7 +115,7 @@ def load_file_durations(duration_path: Path) -> dict[str, float]:
             )
 
         file_path = normalise_node_path(node_id)
-        if not file_path.endswith(".py"):
+        if not file_path:
             raise FileShardingError(f"duration file contains an invalid test node ID: {node_id!r}")
         file_durations[file_path] = file_durations.get(file_path, 0.0) + numeric_duration
 

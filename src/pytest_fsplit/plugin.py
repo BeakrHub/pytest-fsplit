@@ -27,6 +27,7 @@ FGROUP_OPTION = "--fgroup"
 STORE_DURATIONS_OPTION = "--fsplit-store-durations"
 DURATIONS_PATH_OPTION = "--fsplit-durations-path"
 CLEAN_DURATIONS_OPTION = "--fsplit-clean-durations"
+FILE_PATTERN_OPTION = "--fsplit-file-pattern"
 
 _PLAN_ATTRIBUTE = "_pytest_fsplit_plan"
 _ATTEMPTED_FILES_ATTRIBUTE = "_pytest_fsplit_attempted_files"
@@ -106,6 +107,11 @@ def _configured_test_paths(config: pytest.Config) -> tuple[str, ...]:
     )
 
 
+def _configured_file_patterns(config: pytest.Config) -> tuple[str, ...]:
+    configured_patterns = _get_option(config, "fsplit_file_patterns", default=None)
+    return tuple(configured_patterns or config.getini("python_files"))
+
+
 def _build_plan(config: pytest.Config, shard_count: int, shard_index: int) -> FileShardPlan:
     lexical_root = lexical_absolute(config.rootpath)
     invocation_directory = lexical_absolute(config.invocation_params.dir)
@@ -124,7 +130,7 @@ def _build_plan(config: pytest.Config, shard_count: int, shard_index: int) -> Fi
         shard_index,
         duration_path=_configured_duration_path(config),
         test_paths=_configured_test_paths(config),
-        file_patterns=config.getini("python_files"),
+        file_patterns=_configured_file_patterns(config),
         marker_expression=_get_option(config, "markexpr", default=""),
         ignore_paths=ignore_paths,
         ignore_globs=ignore_globs,
@@ -170,6 +176,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="fsplit_clean_durations",
         action="store_true",
         help="when storing durations, remove entries for tests that did not run",
+    )
+    group.addoption(
+        FILE_PATTERN_OPTION,
+        dest="fsplit_file_patterns",
+        action="append",
+        default=None,
+        metavar="PATTERN",
+        help=(
+            "file path pattern to shard; may be supplied multiple times. "
+            "Defaults to pytest's python_files patterns."
+        ),
     )
 
 

@@ -51,6 +51,32 @@ def test_load_file_durations_aggregates_node_timings_by_file(tmp_path: Path) -> 
     }
 
 
+def test_load_file_durations_accepts_legacy_list_pairs(tmp_path: Path) -> None:
+    duration_path = write_durations(
+        tmp_path,
+        [
+            ["tests/test_alpha.py::test_one", 1.0],
+            ["tests/test_beta.py::test_one", 2.0],
+        ],
+    )
+
+    assert load_file_durations(duration_path) == {
+        "tests/test_alpha.py": 1.0,
+        "tests/test_beta.py": 2.0,
+    }
+
+
+def test_load_file_durations_accepts_non_python_file_nodes(tmp_path: Path) -> None:
+    duration_path = write_durations(
+        tmp_path,
+        {
+            "tests/example.case::test_case": 3.0,
+        },
+    )
+
+    assert load_file_durations(duration_path) == {"tests/example.case": 3.0}
+
+
 def test_load_file_durations_rejects_unusable_files(tmp_path: Path) -> None:
     duration_path = write_durations(tmp_path, {"tests/test_alpha.py::test_one": -1})
 
@@ -102,6 +128,16 @@ def test_explicit_initial_path_bypasses_collection_ignores(tmp_path: Path) -> No
         initial_paths=["tests/test_kept.py"],
         test_paths=["tests/test_kept.py"],
     ) == ("tests/test_kept.py",)
+
+
+def test_custom_file_patterns_discover_non_python_files(tmp_path: Path) -> None:
+    write_file(tmp_path, "tests/example.case")
+    write_file(tmp_path, "tests/test_python.py")
+
+    assert discover_candidate_files(
+        tmp_path,
+        file_patterns=["*.case"],
+    ) == ("tests/example.case",)
 
 
 def test_symlinked_external_test_directory_is_a_logical_candidate(tmp_path: Path) -> None:
