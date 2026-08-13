@@ -156,6 +156,33 @@ def test_pytest_split_style_duration_storage_options_are_supported(
     assert set(stored_durations) == {"tests/test_example.py::test_example"}
 
 
+def test_pytest_split_style_options_are_not_rewritten_when_pytest_split_is_loaded(
+    pytester: pytest.Pytester,
+) -> None:
+    write_project(pytester)
+    plugin_package = pytester.path / "pytest_split"
+    plugin_package.mkdir()
+    (plugin_package / "__init__.py").write_text("")
+    (plugin_package / "plugin.py").write_text(
+        'def pytest_addoption(parser):\n'
+        '    parser.addoption("--splits", dest="splits", type=int)\n'
+        '    parser.addoption("--group", dest="group", type=int)\n'
+    )
+    pytester.syspathinsert()
+
+    result = pytester.runpytest(
+        "-q",
+        "-p",
+        "pytest_split.plugin",
+        "--splits",
+        "2",
+        "--group",
+        "1",
+    )
+
+    result.assert_outcomes(passed=2)
+
+
 def test_item_order_randomization_does_not_change_file_shard_membership(
     pytester: pytest.Pytester,
 ) -> None:
