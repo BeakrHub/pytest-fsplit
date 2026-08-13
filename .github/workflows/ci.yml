@@ -53,6 +53,43 @@ jobs:
           .venv/bin/fsplit-plan --help
           .venv/bin/fsplit-slowest-tests --help
           .venv/bin/fsplit-slowest-files --help
+          .venv/bin/python - <<'PY'
+          import json
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          pytest_bin = Path.cwd() / ".venv/bin/pytest"
+          with tempfile.TemporaryDirectory() as workspace:
+              root = Path(workspace)
+              tests = root / "tests"
+              tests.mkdir()
+              (tests / "test_slow.py").write_text("def test_slow():\n    pass\n")
+              (tests / "test_fast.py").write_text("def test_fast():\n    pass\n")
+              (root / ".test_durations").write_text(
+                  json.dumps(
+                      {
+                          "tests/test_slow.py::test_slow": 10.0,
+                          "tests/test_fast.py::test_fast": 1.0,
+                      }
+                  )
+              )
+              output = subprocess.check_output(
+                  [
+                      str(pytest_bin),
+                      "--collect-only",
+                      "-q",
+                      "--splits",
+                      "2",
+                      "--group",
+                      "1",
+                  ],
+                  cwd=root,
+                  text=True,
+              )
+              assert "tests/test_slow.py::test_slow" in output
+              assert "tests/test_fast.py::test_fast" not in output
+          PY
 
   pytest-compatibility:
     name: pytest ${{ matrix.pytest-version }} on Python ${{ matrix.python-version }}
