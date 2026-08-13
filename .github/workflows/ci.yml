@@ -86,7 +86,7 @@ jobs:
           uv pip install "pytest${{ matrix.pytest-version }}" "pytest-xdist>=3"
 
       - name: Show pytest version
-        run: uv run pytest --version
+        run: .venv/bin/pytest --version
 
       - name: Test
-        run: uv run pytest -q
+        run: .venv/bin/pytest -q
