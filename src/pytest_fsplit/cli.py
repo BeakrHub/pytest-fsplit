@@ -3,33 +3,58 @@
 from __future__ import annotations
 
 import argparse
-import json
 from collections.abc import Mapping
+from pathlib import Path
+
+from pytest_fsplit.durations import load_file_durations, load_node_durations
 
 
 def list_slowest_tests() -> None:
-    parser = argparse.ArgumentParser()
+    parser = _duration_parser("List slowest test nodes from a duration file.")
     parser.add_argument(
-        "--durations-path",
-        help="Path to the JSON duration file. Defaults to .test_durations.",
-        default=".test_durations",
-        type=argparse.FileType(),
-    )
-    parser.add_argument(
-        "-c",
         "--count",
-        help="How many slowest tests to list.",
+        "-c",
+        help="How many slowest entries to list.",
         default=10,
         type=int,
     )
     args = parser.parse_args()
-    _list_slowest_tests(json.load(args.durations_path), args.count)
+    _print_slowest_entries(load_node_durations(Path(args.durations_path)), args.count)
 
 
-def _list_slowest_tests(durations: Mapping[str, float], count: int) -> None:
-    slowest_tests = tuple(
-        sorted(durations.items(), key=lambda item: item[1], reverse=True)
-    )[:count]
-    for test, duration in slowest_tests:
-        print(f"{duration:.2f} {test}")
+def list_slowest_files() -> None:
+    parser = _duration_parser("List slowest test files from a duration file.")
+    parser.add_argument(
+        "--count",
+        "-c",
+        help="How many slowest entries to list.",
+        default=10,
+        type=int,
+    )
+    args = parser.parse_args()
+    _print_slowest_entries(load_file_durations(Path(args.durations_path)), args.count)
 
+
+def _duration_parser(description: str) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "--durations-path",
+        help="Path to the JSON duration file. Defaults to .test_durations.",
+        default=".test_durations",
+    )
+    return parser
+
+
+def _format_slowest_entries(durations: Mapping[str, float], count: int) -> tuple[str, ...]:
+    return tuple(
+        f"{duration:.2f} {node_id}"
+        for node_id, duration in sorted(
+            durations.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[:count]
+    )
+
+
+def _print_slowest_entries(durations: Mapping[str, float], count: int) -> None:
+    for line in _format_slowest_entries(durations, count):
+        print(line)

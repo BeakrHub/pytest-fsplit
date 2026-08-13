@@ -5,8 +5,6 @@ from __future__ import annotations
 import ast
 import errno
 import fnmatch
-import json
-import math
 import os
 import stat
 from collections.abc import Iterable, Mapping
@@ -16,12 +14,11 @@ from statistics import median
 
 from _pytest.pathlib import fnmatch_ex
 
+from pytest_fsplit.durations import load_file_durations
+from pytest_fsplit.errors import FileShardingError
+
 DEFAULT_TEST_PATHS = ("tests",)
 DEFAULT_FILE_PATTERNS = ("test_*.py",)
-
-
-class FileShardingError(ValueError):
-    """Raised when a file-shard plan cannot be constructed safely."""
 
 
 @dataclass(frozen=True)
@@ -61,66 +58,10 @@ class MarkerExpressionAnalysis:
     supported: bool
 
 
-def normalise_node_path(node_id: str) -> str:
-    return node_id.split("::", 1)[0].replace("\\", "/")
-
-
 def lexical_absolute(path: Path) -> Path:
     """Make a path absolute without resolving symlink components."""
 
     return Path(os.path.abspath(path))
-
-
-def _normalise_duration_payload(raw_durations: object, duration_path: Path) -> Mapping[str, object]:
-    """Accept pytest-split's current object format and older list-of-pairs format."""
-
-    if isinstance(raw_durations, list):
-        try:
-            raw_durations = dict(raw_durations)
-        except (TypeError, ValueError) as exc:
-            raise FileShardingError(
-                f"duration file must contain duration pairs or a JSON object: {duration_path}"
-            ) from exc
-
-    if not isinstance(raw_durations, dict) or not raw_durations:
-        raise FileShardingError(
-            f"duration file must contain a non-empty JSON object: {duration_path}"
-        )
-    return raw_durations
-
-
-def load_file_durations(duration_path: Path) -> dict[str, float]:
-    """Load pytest-split-compatible node timings and aggregate them by test file."""
-
-    try:
-        raw_durations = json.loads(duration_path.read_text())
-    except FileNotFoundError as exc:
-        raise FileShardingError(f"duration file does not exist: {duration_path}") from exc
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise FileShardingError(f"could not read valid JSON from {duration_path}: {exc}") from exc
-
-    raw_durations = _normalise_duration_payload(raw_durations, duration_path)
-
-    file_durations: dict[str, float] = {}
-    for node_id, duration in raw_durations.items():
-        if not isinstance(node_id, str) or not node_id:
-            raise FileShardingError(f"duration file contains an invalid test node ID: {node_id!r}")
-        if isinstance(duration, bool) or not isinstance(duration, int | float):
-            raise FileShardingError(f"duration for {node_id!r} must be a number")
-
-        numeric_duration = float(duration)
-        if not math.isfinite(numeric_duration) or numeric_duration < 0:
-            raise FileShardingError(
-                f"duration for {node_id!r} must be a finite, non-negative number"
-            )
-
-        file_path = normalise_node_path(node_id)
-        if not file_path:
-            raise FileShardingError(f"duration file contains an invalid test node ID: {node_id!r}")
-        file_durations[file_path] = file_durations.get(file_path, 0.0) + numeric_duration
-
-    return file_durations
-
 
 def normalise_test_paths(root: Path, test_paths: Iterable[str]) -> tuple[str, ...]:
     lexical_root = lexical_absolute(root)

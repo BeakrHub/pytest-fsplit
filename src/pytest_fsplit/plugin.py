@@ -12,15 +12,20 @@ import pytest
 from _pytest.reports import TestReport
 
 from pytest_fsplit.core import (
-    FileShardingError,
     FileShardPlan,
     absolute_collection_patterns,
     absolute_initial_paths,
     build_file_shard_plan,
     lexical_absolute,
-    normalise_node_path,
     should_ignore_collection_path,
 )
+from pytest_fsplit.durations import (
+    load_node_durations,
+    merge_node_durations,
+    normalise_node_path,
+    write_node_durations,
+)
+from pytest_fsplit.errors import FileShardingError
 
 FSPLITS_OPTION = "--fsplits"
 FGROUP_OPTION = "--fgroup"
@@ -422,25 +427,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitC
                 durations[report.nodeid] = durations.get(report.nodeid, 0.0) + report.duration
 
     duration_path = _configured_duration_path(session.config)
-    cached_durations: dict[str, float] = {}
-    if duration_path.exists() and not _get_option(session.config, "fsplit_clean_durations", False):
-        try:
-            raw_durations = json.loads(duration_path.read_text())
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise pytest.UsageError(
-                f"pytest-fsplit could not read existing duration file {duration_path}: {exc}"
-            ) from exc
-        if not isinstance(raw_durations, dict):
-            raise pytest.UsageError(
-                f"pytest-fsplit duration file must contain a JSON object: {duration_path}"
-            )
-        cached_durations = {
-            str(node_id): float(duration)
-            for node_id, duration in raw_durations.items()
-            if isinstance(duration, int | float) and not isinstance(duration, bool)
-        }
-    cached_durations.update(durations)
-    duration_path.write_text(json.dumps(cached_durations, sort_keys=True, indent=4))
+    clean_durations = bool(_get_option(session.config, "fsplit_clean_durations", False))
+    try:
+        cached_durations = (
+            {}
+            if clean_durations
+            else load_node_durations(duration_path, missing_ok=True, empty_ok=True)
+        )
+    except FileShardingError as exc:
+        raise pytest.UsageError(
+            f"pytest-fsplit could not read existing duration file {duration_path}: {exc}"
+        ) from exc
+    write_node_durations(
+        duration_path,
+        merge_node_durations(cached_durations, durations, clean=clean_durations),
+    )
 
 
 def pytest_report_header(config: pytest.Config) -> str | list[str] | None:

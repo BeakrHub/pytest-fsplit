@@ -201,6 +201,26 @@ def test_clean_durations_drops_existing_entries(pytester: pytest.Pytester) -> No
     }
 
 
+def test_store_durations_rejects_malformed_existing_duration_file(
+    pytester: pytest.Pytester,
+) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("def test_example():\n    pass\n")
+    duration_path = pytester.path / "durations.json"
+    duration_path.write_text(json.dumps({"tests/test_deleted.py::test_deleted": "bad"}))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+    result = pytester.runpytest(
+        "--fsplit-store-durations",
+        "--fsplit-durations-path",
+        str(duration_path),
+    )
+
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines(["ERROR: pytest-fsplit could not read existing duration file*"])
+
+
 def test_sharding_rejects_pytest_split_selection_options(pytester: pytest.Pytester) -> None:
     write_project(pytester)
     pytester.makeconftest(

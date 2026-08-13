@@ -41,6 +41,13 @@ as shardable files:
 pytest --fsplit-file-pattern "*.ipynb" --fsplits 4 --fgroup 1
 ```
 
+Stored duration files can be inspected from the command line:
+
+```bash
+fsplit-slowest-tests --count 10
+fsplit-slowest-files --count 10
+```
+
 ## Behavior
 
 - Shard indices are one-based.
