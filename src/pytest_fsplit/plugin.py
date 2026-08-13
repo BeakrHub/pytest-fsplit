@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,14 @@ _CACHED_DURATIONS_ATTRIBUTE = "_pytest_fsplit_cached_durations"
 _XDIST_WORKER_PLAN_KEY = "pytest_fsplit_plan"
 _XDIST_WORKER_PLAN_VERSION = 1
 _SETUP_AND_TEARDOWN_DURATION_LIMIT_SECONDS = 60 * 10
+_PYTEST_SPLIT_OPTION_ALIASES = {
+    "--splits": FSPLITS_OPTION,
+    "--group": FGROUP_OPTION,
+    "--store-durations": STORE_DURATIONS_OPTION,
+    "--durations-path": DURATIONS_PATH_OPTION,
+    "--clean-durations": CLEAN_DURATIONS_OPTION,
+    "--splitting-algorithm": ALGORITHM_OPTION,
+}
 
 
 def _serialize_plan(plan: FileShardPlan) -> str:
@@ -106,6 +115,44 @@ def _get_option(config: pytest.Config, option: str, default: Any = None) -> Any:
     return config.getoption(option, default=default)
 
 
+def _plugin_module_name(plugin: object) -> str:
+    return str(
+        getattr(plugin, "__name__", None)
+        or getattr(getattr(plugin, "__class__", object), "__module__", "")
+    )
+
+
+def _pytest_split_is_loaded(config: pytest.Config) -> bool:
+    return any(
+        name == "pytest-split" or _plugin_module_name(plugin).startswith("pytest_split.")
+        for name, plugin in config.pluginmanager.list_name_plugin()
+        if plugin is not None
+    )
+
+
+def _iter_option_names(args: list[str]) -> Iterable[str]:
+    for argument in args:
+        if argument == "--":
+            return
+        if not argument.startswith("-"):
+            continue
+        option, _, _value = argument.partition("=")
+        yield option
+
+
+def _rewrite_pytest_split_aliases(args: list[str]) -> None:
+    if set(_iter_option_names(args)) & set(_PYTEST_SPLIT_OPTION_ALIASES.values()):
+        return
+    for index, argument in enumerate(args):
+        if argument == "--":
+            return
+        option, has_value, value = argument.partition("=")
+        replacement = _PYTEST_SPLIT_OPTION_ALIASES.get(option)
+        if replacement is None:
+            continue
+        args[index] = f"{replacement}={value}" if has_value else replacement
+
+
 def _configured_duration_path(config: pytest.Config) -> Path:
     configured = Path(_get_option(config, "fsplit_durations_path"))
     if not configured.is_absolute():
@@ -156,6 +203,17 @@ def _build_plan(config: pytest.Config, shard_count: int, shard_index: int) -> Fi
             default=DEFAULT_SPLITTING_ALGORITHM,
         ),
     )
+
+
+def pytest_load_initial_conftests(
+    early_config: pytest.Config,
+    parser: pytest.Parser,
+    args: list[str],
+) -> None:
+    del parser
+    if _pytest_split_is_loaded(early_config):
+        return
+    _rewrite_pytest_split_aliases(args)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

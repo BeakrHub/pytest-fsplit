@@ -84,6 +84,78 @@ def test_all_file_shards_match_unsharded_collection(pytester: pytest.Pytester) -
     assert sharded == collected_node_ids(unsharded.stdout.str())
 
 
+def test_pytest_split_style_shard_options_are_supported(
+    pytester: pytest.Pytester,
+) -> None:
+    write_project(pytester)
+
+    result = pytester.runpytest(
+        "--collect-only",
+        "-q",
+        "--splits",
+        "2",
+        "--group",
+        "1",
+    )
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {"tests/test_slow.py::test_slow"}
+
+
+def test_pytest_split_style_equals_options_are_supported(
+    pytester: pytest.Pytester,
+) -> None:
+    write_equal_duration_project(pytester)
+    duration_path = pytester.path / "durations.json"
+    duration_path.write_text(
+        json.dumps(
+            {
+                "tests/test_a.py::test_a": 1.0,
+                "tests/test_b.py::test_b": 1.0,
+                "tests/test_c.py::test_c": 1.0,
+                "tests/test_d.py::test_d": 1.0,
+            }
+        )
+    )
+
+    result = pytester.runpytest(
+        "--collect-only",
+        "-q",
+        f"--durations-path={duration_path}",
+        "--splitting-algorithm=duration_based_chunks",
+        "--splits=2",
+        "--group=1",
+    )
+
+    result.assert_outcomes()
+    assert collected_node_ids(result.stdout.str()) == {
+        "tests/test_a.py::test_a",
+        "tests/test_b.py::test_b",
+    }
+
+
+def test_pytest_split_style_duration_storage_options_are_supported(
+    pytester: pytest.Pytester,
+) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("def test_example():\n    pass\n")
+    duration_path = pytester.path / "durations.json"
+    duration_path.write_text(json.dumps({"tests/test_deleted.py::test_deleted": 5.0}))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+    result = pytester.runpytest(
+        "--store-durations",
+        "--clean-durations",
+        "--durations-path",
+        str(duration_path),
+    )
+
+    result.assert_outcomes(passed=1)
+    stored_durations = json.loads(duration_path.read_text())
+    assert set(stored_durations) == {"tests/test_example.py::test_example"}
+
+
 def test_item_order_randomization_does_not_change_file_shard_membership(
     pytester: pytest.Pytester,
 ) -> None:
