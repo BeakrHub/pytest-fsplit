@@ -153,3 +153,27 @@ jobs:
 
       - name: Test coexistence
         run: .venv/bin/pytest tests/test_pytest_split_coexistence.py -q
+
+  nbval-compatibility:
+    name: nbval compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --locked
+          uv pip install nbval
+
+      - name: Test nbval compatibility
+        run: .venv/bin/pytest tests/test_nbval_compatibility.py -q
