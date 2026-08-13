@@ -18,6 +18,7 @@ from pytest_fsplit.core import (
     absolute_collection_patterns,
     absolute_initial_paths,
     build_file_shard_plan,
+    format_file_shard_plan_summary,
     lexical_absolute,
     should_ignore_collection_path,
 )
@@ -478,15 +479,7 @@ def pytest_report_header(config: pytest.Config) -> str | list[str] | None:
     plan: FileShardPlan | None = getattr(config, _PLAN_ATTRIBUTE, None)
     if plan is None or os.getenv("PYTEST_XDIST_WORKER"):
         return None
-    summary = (
-        f"pytest-fsplit {plan.shard_index}/{plan.shard_count}: "
-        f"{plan.splitting_algorithm}, "
-        f"{len(plan.assigned_files)}/{len(plan.candidate_files)} files assigned, "
-        f"{len(plan.selected_files)} collected, "
-        f"{plan.estimated_seconds:.2f}s estimated, "
-        f"{len(plan.untimed_files)} untimed, "
-        f"{len(plan.zero_weight_files)} marker-excluded before collection"
-    )
+    summary = format_file_shard_plan_summary(plan)
     if plan.marker_expression_supported:
         return summary
     return [

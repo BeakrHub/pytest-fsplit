@@ -50,5 +50,6 @@ jobs:
         run: |
           uv pip install --reinstall --no-deps dist/*.whl
           .venv/bin/python -c "import subprocess; out = subprocess.check_output(['.venv/bin/pytest', '--help'], text=True); assert '--fsplits' in out; assert '--fgroup' in out"
+          .venv/bin/fsplit-plan --help
           .venv/bin/fsplit-slowest-tests --help
           .venv/bin/fsplit-slowest-files --help

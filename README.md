@@ -52,9 +52,13 @@ pytest --fsplit-file-pattern "*.ipynb" --fsplits 4 --fgroup 1
 Stored duration files can be inspected from the command line:
 
 ```bash
+fsplit-plan --fsplits 4
 fsplit-slowest-tests --count 10
 fsplit-slowest-files --count 10
 ```
+
+Use `fsplit-plan --fsplits 4 --show-files` to see file assignments, or
+`fsplit-plan --fsplits 4 --json` for machine-readable output.
 
 ## Behavior
 

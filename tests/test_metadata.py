@@ -27,7 +27,7 @@ def test_console_scripts_are_declared() -> None:
     pyproject = load_pyproject()
 
     assert pyproject["project"]["scripts"] == {
+        "fsplit-plan": "pytest_fsplit.cli:show_plan",
         "fsplit-slowest-files": "pytest_fsplit.cli:list_slowest_files",
         "fsplit-slowest-tests": "pytest_fsplit.cli:list_slowest_tests",
     }
-

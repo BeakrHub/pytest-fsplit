@@ -29,6 +29,7 @@ dependencies = [
 pytest-fsplit = "pytest_fsplit.plugin"
 
 [project.scripts]
+fsplit-plan = "pytest_fsplit.cli:show_plan"
 fsplit-slowest-tests = "pytest_fsplit.cli:list_slowest_tests"
 fsplit-slowest-files = "pytest_fsplit.cli:list_slowest_files"
 

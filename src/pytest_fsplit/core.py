@@ -516,10 +516,43 @@ def _parent_directories(file_paths: Iterable[str]) -> frozenset[str]:
     return frozenset(directories)
 
 
-def build_file_shard_plan(
+def _build_plan_from_shard(
     root: Path,
     shard_count: int,
     shard_index: int,
+    *,
+    test_paths: tuple[str, ...],
+    file_patterns: tuple[str, ...],
+    candidate_files: tuple[str, ...],
+    selected_shard: FileShard,
+    marker_expression_supported: bool,
+    splitting_algorithm: str,
+) -> FileShardPlan:
+    assigned_files = frozenset(selected_shard.files)
+    selected_zero_weight_files = frozenset(selected_shard.zero_weight_files)
+    selected_files = assigned_files - selected_zero_weight_files
+
+    return FileShardPlan(
+        root=root,
+        shard_count=shard_count,
+        shard_index=shard_index,
+        test_paths=test_paths,
+        file_patterns=file_patterns,
+        candidate_files=candidate_files,
+        assigned_files=assigned_files,
+        selected_files=selected_files,
+        selected_directories=_parent_directories(selected_files),
+        estimated_seconds=selected_shard.estimated_seconds,
+        untimed_files=frozenset(selected_shard.untimed_files),
+        zero_weight_files=selected_zero_weight_files,
+        marker_expression_supported=marker_expression_supported,
+        splitting_algorithm=splitting_algorithm,
+    )
+
+
+def build_file_shard_plans(
+    root: Path,
+    shard_count: int,
     *,
     duration_path: Path | None = None,
     test_paths: Iterable[str] = DEFAULT_TEST_PATHS,
@@ -530,15 +563,11 @@ def build_file_shard_plan(
     norecurse_patterns: Iterable[str] = (),
     initial_paths: Iterable[str] = (),
     splitting_algorithm: str = DEFAULT_SPLITTING_ALGORITHM,
-) -> FileShardPlan:
-    """Build a one-based shard plan rooted at a checkout."""
+) -> tuple[FileShardPlan, ...]:
+    """Build all one-based shard plans rooted at a checkout."""
 
     if shard_count <= 0:
         raise FileShardingError("file shard count must be greater than zero")
-    if shard_index <= 0 or shard_index > shard_count:
-        raise FileShardingError(
-            f"file shard index must be between 1 and {shard_count}, got {shard_index}"
-        )
 
     lexical_root = lexical_absolute(root)
     configured_test_paths = normalise_test_paths(lexical_root, test_paths)
@@ -566,26 +595,70 @@ def build_file_shard_plan(
         zero_weight_files=zero_weight_files,
         splitting_algorithm=splitting_algorithm,
     )
-    selected_shard = shards[shard_index - 1]
-    assigned_files = frozenset(selected_shard.files)
-    selected_zero_weight_files = frozenset(selected_shard.zero_weight_files)
-    selected_files = assigned_files - selected_zero_weight_files
+    return tuple(
+        _build_plan_from_shard(
+            lexical_root,
+            shard_count,
+            shard_index,
+            test_paths=configured_test_paths,
+            file_patterns=configured_file_patterns,
+            candidate_files=candidates,
+            selected_shard=selected_shard,
+            marker_expression_supported=marker_analysis.supported,
+            splitting_algorithm=splitting_algorithm,
+        )
+        for shard_index, selected_shard in enumerate(shards, start=1)
+    )
 
-    return FileShardPlan(
-        root=lexical_root,
-        shard_count=shard_count,
-        shard_index=shard_index,
-        test_paths=configured_test_paths,
-        file_patterns=configured_file_patterns,
-        candidate_files=candidates,
-        assigned_files=assigned_files,
-        selected_files=selected_files,
-        selected_directories=_parent_directories(selected_files),
-        estimated_seconds=selected_shard.estimated_seconds,
-        untimed_files=frozenset(selected_shard.untimed_files),
-        zero_weight_files=selected_zero_weight_files,
-        marker_expression_supported=marker_analysis.supported,
+
+def build_file_shard_plan(
+    root: Path,
+    shard_count: int,
+    shard_index: int,
+    *,
+    duration_path: Path | None = None,
+    test_paths: Iterable[str] = DEFAULT_TEST_PATHS,
+    file_patterns: Iterable[str] = DEFAULT_FILE_PATTERNS,
+    marker_expression: str = "",
+    ignore_paths: Iterable[str] = (),
+    ignore_globs: Iterable[str] = (),
+    norecurse_patterns: Iterable[str] = (),
+    initial_paths: Iterable[str] = (),
+    splitting_algorithm: str = DEFAULT_SPLITTING_ALGORITHM,
+) -> FileShardPlan:
+    """Build a one-based shard plan rooted at a checkout."""
+
+    if shard_count <= 0:
+        raise FileShardingError("file shard count must be greater than zero")
+    if shard_index <= 0 or shard_index > shard_count:
+        raise FileShardingError(
+            f"file shard index must be between 1 and {shard_count}, got {shard_index}"
+        )
+
+    return build_file_shard_plans(
+        root,
+        shard_count,
+        duration_path=duration_path,
+        test_paths=test_paths,
+        file_patterns=file_patterns,
+        marker_expression=marker_expression,
+        ignore_paths=ignore_paths,
+        ignore_globs=ignore_globs,
+        norecurse_patterns=norecurse_patterns,
+        initial_paths=initial_paths,
         splitting_algorithm=splitting_algorithm,
+    )[shard_index - 1]
+
+
+def format_file_shard_plan_summary(plan: FileShardPlan, *, prefix: str = "pytest-fsplit") -> str:
+    return (
+        f"{prefix} {plan.shard_index}/{plan.shard_count}: "
+        f"{plan.splitting_algorithm}, "
+        f"{len(plan.assigned_files)}/{len(plan.candidate_files)} files assigned, "
+        f"{len(plan.selected_files)} collected, "
+        f"{plan.estimated_seconds:.2f}s estimated, "
+        f"{len(plan.untimed_files)} untimed, "
+        f"{len(plan.zero_weight_files)} marker-excluded before collection"
     )
 
 
