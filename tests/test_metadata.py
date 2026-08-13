@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 try:
@@ -27,6 +28,20 @@ def test_pytest_dependency_range_matches_compatibility_ci() -> None:
     pyproject = load_pyproject()
 
     assert "pytest>=7" in pyproject["project"]["dependencies"]
+
+
+def test_python_classifiers_match_ci_matrix() -> None:
+    pyproject = load_pyproject()
+    workflow = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+
+    classified_versions = {
+        classifier.rsplit("::", 1)[1].strip()
+        for classifier in pyproject["project"]["classifiers"]
+        if classifier.startswith("Programming Language :: Python :: 3.")
+    }
+    tested_versions = set(re.findall(r'- "(\d+\.\d+)"', workflow))
+
+    assert classified_versions == tested_versions
 
 
 def test_console_scripts_are_declared() -> None:

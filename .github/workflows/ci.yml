@@ -18,6 +18,7 @@ jobs:
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
 
     steps:
       - name: Check out repository
@@ -35,18 +36,18 @@ jobs:
         run: uv sync --extra dev --locked
 
       - name: Lint
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         run: uv run ruff check .
 
       - name: Test
         run: uv run pytest -q
 
       - name: Build package
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         run: uv build
 
       - name: Smoke test built wheel
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         run: |
           uv pip install --reinstall --no-deps dist/*.whl
           .venv/bin/python -c "import subprocess; out = subprocess.check_output(['.venv/bin/pytest', '--help'], text=True); assert '--fsplits' in out; assert '--fgroup' in out"
@@ -103,7 +104,7 @@ jobs:
             pytest-version: ">=7,<8"
           - python-version: "3.12"
             pytest-version: ">=8,<9"
-          - python-version: "3.13"
+          - python-version: "3.14"
             pytest-version: ">=9,<10"
 
     steps:
