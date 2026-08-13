@@ -158,6 +158,49 @@ def test_store_durations_writes_pytest_split_compatible_json(pytester: pytest.Py
     assert all(isinstance(duration, int | float) for duration in durations.values())
 
 
+def test_store_durations_merges_existing_entries_by_default(pytester: pytest.Pytester) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("def test_example():\n    pass\n")
+    duration_path = pytester.path / "durations.json"
+    duration_path.write_text(json.dumps({"tests/test_deleted.py::test_deleted": 5.0}))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+    result = pytester.runpytest(
+        "--fsplit-store-durations",
+        "--fsplit-durations-path",
+        str(duration_path),
+    )
+
+    result.assert_outcomes(passed=1)
+    durations = json.loads(duration_path.read_text())
+    assert set(durations) == {
+        "tests/test_deleted.py::test_deleted",
+        "tests/test_example.py::test_example",
+    }
+
+
+def test_clean_durations_drops_existing_entries(pytester: pytest.Pytester) -> None:
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("def test_example():\n    pass\n")
+    duration_path = pytester.path / "durations.json"
+    duration_path.write_text(json.dumps({"tests/test_deleted.py::test_deleted": 5.0}))
+    pytester.makeini("[pytest]\ntestpaths = tests\n")
+
+    result = pytester.runpytest(
+        "--fsplit-store-durations",
+        "--fsplit-clean-durations",
+        "--fsplit-durations-path",
+        str(duration_path),
+    )
+
+    result.assert_outcomes(passed=1)
+    assert set(json.loads(duration_path.read_text())) == {
+        "tests/test_example.py::test_example",
+    }
+
+
 def test_sharding_rejects_pytest_split_selection_options(pytester: pytest.Pytester) -> None:
     write_project(pytester)
     pytester.makeconftest(
@@ -270,3 +313,22 @@ def test_custom_file_pattern_shards_files_from_other_collectors(
 
     result.assert_outcomes(passed=1)
     assert "slow.case" in result.stdout.str()
+
+
+def test_xdist_workers_receive_the_controller_shard_plan(pytester: pytest.Pytester) -> None:
+    pytest.importorskip("xdist")
+    write_project(pytester)
+
+    result = pytester.runpytest_subprocess(
+        "-n",
+        "2",
+        "--dist",
+        "loadgroup",
+        "-q",
+        "--fsplits",
+        "2",
+        "--fgroup",
+        "1",
+    )
+
+    result.assert_outcomes(passed=1)
