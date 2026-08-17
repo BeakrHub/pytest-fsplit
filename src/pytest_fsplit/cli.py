@@ -7,16 +7,16 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from pytest_fsplit.core import (
+from pytest_fsplit.durations import load_file_durations, load_node_durations
+from pytest_fsplit.errors import FileShardingError
+from pytest_fsplit.models import (
     DEFAULT_FILE_PATTERNS,
     DEFAULT_SPLITTING_ALGORITHM,
     SPLITTING_ALGORITHMS,
     FileShardPlan,
-    build_file_shard_plans,
-    format_file_shard_plan_summary,
 )
-from pytest_fsplit.durations import load_file_durations, load_node_durations
-from pytest_fsplit.errors import FileShardingError
+from pytest_fsplit.planning import build_file_shard_plans
+from pytest_fsplit.reporting import format_file_shard_plan_summary
 
 
 def list_slowest_tests() -> None:

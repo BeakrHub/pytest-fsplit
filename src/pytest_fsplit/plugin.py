@@ -11,14 +11,9 @@ from typing import Any
 import pytest
 from _pytest.reports import TestReport
 
-from pytest_fsplit.core import (
-    DEFAULT_SPLITTING_ALGORITHM,
-    SPLITTING_ALGORITHMS,
-    FileShardPlan,
+from pytest_fsplit.collection import (
     absolute_collection_patterns,
     absolute_initial_paths,
-    build_file_shard_plan,
-    format_file_shard_plan_summary,
     lexical_absolute,
     should_ignore_collection_path,
 )
@@ -29,6 +24,13 @@ from pytest_fsplit.durations import (
     write_node_durations,
 )
 from pytest_fsplit.errors import FileShardingError
+from pytest_fsplit.models import (
+    DEFAULT_SPLITTING_ALGORITHM,
+    SPLITTING_ALGORITHMS,
+    FileShardPlan,
+)
+from pytest_fsplit.planning import build_file_shard_plan
+from pytest_fsplit.reporting import format_file_shard_plan_summary
 
 FSPLITS_OPTION = "--fsplits"
 FGROUP_OPTION = "--fgroup"
