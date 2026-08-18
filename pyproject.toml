@@ -37,6 +37,8 @@ slowest-tests = "pytest_fsplit.cli:list_slowest_tests"
 
 [project.optional-dependencies]
 dev = [
+  "nbval",
+  "pytest-split",
   "pytest-xdist>=3",
   "ruff>=0.6",
 ]

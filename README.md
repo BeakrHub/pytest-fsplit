@@ -34,14 +34,9 @@ pytest --fsplits 4 --fgroup 4
 The duration file defaults to `.test_durations` in the invocation directory and
 can be changed with `--fsplit-durations-path`.
 
-For easier migration from pytest-split, pytest-fsplit also accepts pytest-split's
-option names when pytest-split itself is not installed:
-
-```bash
-pytest --store-durations
-pytest --splits 4 --group 1
-pytest --durations-path .test_durations --splitting-algorithm least_duration
-```
+`pytest-fsplit` intentionally uses distinct option names. If `pytest-split` is
+installed too, `--splits` and `--group` continue to belong to pytest-split; use
+`--fsplits` and `--fgroup` for file-level pre-collection sharding.
 
 The default file splitting algorithm is `least_duration`, which greedily assigns
 the next heaviest file to the lightest shard. To preserve contiguous lexical file
@@ -84,9 +79,6 @@ Use `fsplit-plan --fsplits 4 --show-files` to see file assignments, or
 - Missing, malformed, or unusable duration files fail immediately when sharding.
 - `--fsplit-store-durations` writes the same node-duration JSON shape used by
   pytest-split.
-- Pytest-split-style aliases are accepted for the main options:
-  `--store-durations`, `--durations-path`, `--splits`, `--group`,
-  `--splitting-algorithm`, and `--clean-durations`.
 - Older pytest-split list-of-pairs duration files are accepted when reading.
 - `--fsplit-store-durations` cannot be combined with sharding because it would
   record only the selected shard.
