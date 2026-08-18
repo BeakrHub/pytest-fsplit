@@ -1,9 +1,9 @@
 # pytest-fsplit
 
 `pytest-fsplit` is a pytest plugin for splitting a test suite into deterministic
-file-level shards before pytest imports and collects unselected files.
+file-level shards before pytest imports and collects unselected files. This is in contrast with plugins like `pytest-split` which collect fully and then deselect in each shard. In large test code bases this collection step can take up multiple minutes and keeps taking longer as you add more tests. In `pytest-fsplit` the collection is a lot faster and stays proportional to shard size. In our own codebase with 18k tests and 1.5k test files, `pytest-fsplit` takes 40s vs `pytest-split` which takes 3 mins to collect tests.
 
-It reads a pytest-split-compatible JSON duration file, aggregates node timings by
+`pytest-fsplit` reads a pytest-split-compatible JSON duration file, aggregates node timings by
 test file, assigns files to shards with a longest-processing-time-first plan, and
 uses `pytest_ignore_collect` to prune files and directories outside the selected
 shard.
